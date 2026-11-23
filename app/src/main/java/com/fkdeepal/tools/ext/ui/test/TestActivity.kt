@@ -28,8 +28,10 @@ import com.fkdeepal.tools.ext.manager.UserDataManager
 import com.fkdeepal.tools.ext.presentation.HudPresentation
 import com.fkdeepal.tools.ext.receiver.AmapNaviGuideReceiver
 import com.fkdeepal.tools.ext.ui.HudDisplayActivity
+import com.fkdeepal.tools.ext.utils.HudDisplayHelper
 import com.fkdeepal.tools.ext.utils.SvgLoader
 import com.jeremyliao.liveeventbus.LiveEventBus
+import timber.log.Timber
 
 class TestActivity : BaseActivity<ActivityTestBinding>() {
     private var mHudPresentation: HudPresentation? = null
@@ -50,9 +52,15 @@ class TestActivity : BaseActivity<ActivityTestBinding>() {
             setOnClickListener(btnDisplayInfo, btnHudPresentation, btnHudActivity, btnHudCancel, btnAmap,
                                btnAmapHud, btnHud3, btnHud4)
             setOnClickListener(btnNaviStart, btnLogChange)
+            setOnClickListener(btnHudOverlay, btnHudPreview, btnHudScan)
             etDisplayIndex.setText(UserDataManager.getHudDisplayId()?.toString())
         }
         displayLogState()
+    }
+
+    private fun appendResult(text: String) {
+        mViewBinding.tvResult.append("\n\n>>> $text")
+        Timber.tag("TestActivity").i(text)
     }
 
     fun displayLogState() {
@@ -60,34 +68,44 @@ class TestActivity : BaseActivity<ActivityTestBinding>() {
     }
 
     fun getHubDisplay(): Display? {
-        val index = mViewBinding.etDisplayIndex.text.toString().toIntOrNull()
-        if (index == null) {
-            toast("请填写副屏信息")
-            return null
+        val input = mViewBinding.etDisplayIndex.text.toString().trim().toIntOrNull()
+        val displays = mDisplayManager?.displays?.toList().orEmpty()
+
+        if (input == null) {
+            val auto = HudDisplayHelper.findHudDisplay(this)
+            if (auto == null) toast("没找到 HUD 屏，先点“获取屏幕数据”看列表")
+            return auto
         }
-        val displays = mDisplayManager?.displays
-        val display = displays?.getOrNull(index)
-        if (display == null) {
-            toast("副屏index有误")
-            return null
-        }
+
+        // 先按 displayId 找；找不到再按数组下标找（兼容老用法）
+        val display = displays.firstOrNull { it.displayId == input } ?: displays.getOrNull(input)
+        if (display == null) toast("displayId=$input 不存在（共 ${displays.size} 块屏）")
         return display
     }
 
     fun startHudActivity(type: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!Settings.canDrawOverlays(mActivity)) {
-                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                startActivityForResult(intent, 1)
-                return
-            }
-            getHubDisplay()?.let {
-                val options = ActivityOptions.makeBasic()
-                options.setLaunchDisplayId(it.displayId)
-                val intent = Intent(mActivity, HudDisplayActivity::class.java)
-                intent.putExtra("type", type)
-                startActivity(intent, options.toBundle())
-            }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (!Settings.canDrawOverlays(mActivity)) {
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivityForResult(intent, 1)
+            return
+        }
+        val display = getHubDisplay() ?: return
+        try {
+            val options = ActivityOptions.makeBasic()
+            options.setLaunchDisplayId(display.displayId)
+            val intent = Intent(mActivity, HudDisplayActivity::class.java)
+            intent.putExtra("type", type)
+            startActivity(intent, options.toBundle())
+            appendResult("已用 launchDisplayId=${display.displayId} 启动 HudDisplayActivity")
+        } catch (t: Throwable) {
+            // 新固件：Permission Denial ... with launchDisplayId=N
+            appendResult(
+                "launchDisplayId=${display.displayId} 启动失败：\n${t.javaClass.simpleName}: ${t.message}\n" +
+                        "改用屏幕悬浮窗方案"
+            )
+            val ok = HudDisplayHelper.showOverlayOnDisplay(mActivity, display)
+            appendResult("悬浮窗方案: " + if (ok) "成功" else "失败（详见日志）")
         }
     }
 
@@ -98,52 +116,54 @@ class TestActivity : BaseActivity<ActivityTestBinding>() {
             when (v) {
                 btnDisplayInfo -> {
                     mIsShowAmapInfo = false
-                    mDisplayManager?.let { manager ->
-                        val displays = manager.displays
-                        val stringBuilder = StringBuilder()
-                        for (display in displays) {
-                            val name = display.name
-                            stringBuilder.append(display.displayId)
-                                .append(" -- ")
-                                .append(name)
-                                .append("\n")
-                            val metrics = DisplayMetrics()
-                            display.getMetrics(metrics)
-                            stringBuilder.append("      width:")
-                                .append(display.width)
-                                .append("\n")
-                            stringBuilder.append("      height:")
-                                .append(display.height)
-                                .append("\n")
-                            stringBuilder.append("      refreshRate:")
-                                .append(display.refreshRate)
-                                .append("\n")
-                            stringBuilder.append("      density :")
-                                .append(metrics.density)
-                                .append("\n")
-                            stringBuilder.append("      densityDpi  :")
-                                .append(metrics.densityDpi)
-                                .append("\n")
-                            stringBuilder.append("      scaledDensity   :")
-                                .append(metrics.scaledDensity)
-                                .append("\n")
-                            val supportedModes = display.supportedModes
-                            stringBuilder.append("      支持模式")
-                                .append("\n")
-                            for (mode in supportedModes) {
-                                stringBuilder.append("" + mode.physicalWidth + "x" + mode.physicalHeight + " @ " + mode.refreshRate + "Hz")
-                                    .append("\n")
-                            }
-                        }
-                        tvResult.setText(stringBuilder)
+                    val report = HudDisplayHelper.displayReport(this@TestActivity)
+                    tvResult.setText(report)
+                    Timber.tag("TestActivity").i("屏幕诊断:\n$report")
+                    HudDisplayHelper.copyToClipboard(this@TestActivity, report)
+                    toast("诊断信息已复制到剪贴板")
+                }
+
+                btnHudOverlay -> {
+                    val display = getHubDisplay()
+                    if (display == null) {
+                        appendResult("没有可用的副屏/HUD 屏，先点“获取屏幕数据”")
+                    } else {
+                        val ok = HudDisplayHelper.showOverlayOnDisplay(this@TestActivity, display)
+                        appendResult(
+                            "在 ${HudDisplayHelper.describe(display)} 上加悬浮窗: " +
+                                    if (ok) "成功" else "失败（详见日志）"
+                        )
                     }
+                }
+
+                btnHudPreview -> {
+                    val ok = HudDisplayHelper.showPreviewOnDefaultDisplay(this@TestActivity)
+                    appendResult("本机预览: " + if (ok) "已显示（当前屏幕右下角）" else "失败")
+                }
+
+                btnHudScan -> {
+                    val apps = HudDisplayHelper.candidateHudApps(this@TestActivity)
+                    val sb = StringBuilder("HUD 相关应用:\n")
+                    if (apps.isEmpty()) {
+                        sb.append("（没有包名含 hud/cluster/instrument 的应用）\n")
+                    } else {
+                        apps.forEach { sb.append(it).append('\n') }
+                    }
+                    sb.append("\n启动结果:\n").append(HudDisplayHelper.launchCandidateHudApps(this@TestActivity))
+                    tvResult.setText(sb)
+                    Timber.tag("TestActivity").i(sb.toString())
                 }
 
                 btnHudPresentation -> {
                     getHubDisplay()?.let {
-                        mHudPresentation?.dismiss()
-                        mHudPresentation = HudPresentation(applicationContext, it)
-                        mHudPresentation?.show()
+                        try {
+                            mHudPresentation?.dismiss()
+                            mHudPresentation = HudPresentation(applicationContext, it)
+                            mHudPresentation?.show()
+                            appendResult("Presentation 已显示在 ${HudDisplayHelper.describe(it)}")
+                        } catch (t: Throwable) {
+                            appendResult("Presentation 显示失败：${t.javaClass.simpleName}: ${t.message}")
+                        }
                     }
                 }
 

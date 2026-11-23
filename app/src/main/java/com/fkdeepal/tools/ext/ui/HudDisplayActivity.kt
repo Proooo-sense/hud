@@ -21,8 +21,11 @@ import com.fkdeepal.tools.ext.databinding.ActivityHudBinding
 import com.fkdeepal.tools.ext.event.hud.HudCloseEvent
 import com.fkdeepal.tools.ext.exts.toast
 import com.fkdeepal.tools.ext.manager.UserDataManager
+import com.fkdeepal.tools.ext.service.HudWatchService
+import com.fkdeepal.tools.ext.utils.HudDisplayHelper
 import com.fkdeepal.tools.ext.utils.PreferenceUtils
 import com.jeremyliao.liveeventbus.LiveEventBus
+import timber.log.Timber
 
 class HudDisplayActivity : AppCompatActivity() {
     
@@ -42,68 +45,43 @@ class HudDisplayActivity : AppCompatActivity() {
             isHudServiceRunning = running
         }
 
+        /**
+         * 老接口保留：跨屏启动 Activity。
+         * 新固件（Android 11 起）会抛 SecurityException，所以这里必须 try/catch，
+         * 失败时自动降级为 HudDisplayHelper 的"副屏悬浮窗"方案。
+         */
         fun startActivity(context: Context, launchDisplayId: Int) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            try {
                 val options = ActivityOptions.makeBasic()
                 options.setLaunchDisplayId(launchDisplayId)
                 val intent = Intent(context, HudDisplayActivity::class.java)
-                if (context is Activity) {
-                    // 保持原有逻辑
-                } else {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
+                if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent, options.toBundle())
+            } catch (t: Throwable) {
+                Timber.w("HudDisplayActivity 跨屏启动被拒绝(launchDisplayId=$launchDisplayId)：${t.message}，改用悬浮窗方案")
+                val display = HudDisplayHelper.findHudDisplay(context)
+                if (display != null) {
+                    HudDisplayHelper.showOverlayOnDisplay(context, display)
+                }
             }
         }
 
         fun startActivity(context: Context) {
-            val launchDisplayId = UserDataManager.getHudDisplayId()
-            if (launchDisplayId == null) {
-                context.toast("请先到设置页面中设置投屏屏幕ID")
-                return
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Settings.canDrawOverlays(context)) {
-                val options = ActivityOptions.makeBasic()
-                options.setLaunchDisplayId(launchDisplayId)
-                val intent = Intent(context, HudDisplayActivity::class.java)
-                if (context is Activity) {
-                    // 保持原有逻辑
-                } else {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                intent.putExtra("type", 1)
-                context.startActivity(intent, options.toBundle())
-            }
+            // OTA 之后统一走 HudDisplayHelper：自动找屏 + 自动降级，不会再崩
+            HudDisplayHelper.startHud(context, false)
         }
 
-        // 新增：支持自启动模式的启动方法
+        // 支持自启动模式的启动方法
         fun startActivity(context: Context, isAutoStart: Boolean) {
-            val launchDisplayId = UserDataManager.getHudDisplayId()
-            if (launchDisplayId == null) {
-                context.toast("请先到设置页面中设置投屏屏幕ID")
-                return
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Settings.canDrawOverlays(context)) {
-                val options = ActivityOptions.makeBasic()
-                options.setLaunchDisplayId(launchDisplayId)
-                val intent = Intent(context, HudDisplayActivity::class.java)
-                if (context is Activity) {
-                    // 保持原有逻辑
-                } else {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                intent.putExtra("type", 1)
-                intent.putExtra("is_auto_start", isAutoStart)
-                context.startActivity(intent, options.toBundle())
-            }
+            HudDisplayHelper.startHud(context, isAutoStart)
         }
 
         // 关闭HUD的方法 - 修复：使用正确的方法名 hideHudFloat
         fun closeHud(context: Context) {
             AmapFloatManager.hideHudFloat()
             setHudServiceRunning(false) // 标记HUD服务已停止
+            runCatching { HudWatchService.stop(context) }
             context.toast("HUD已关闭")
         }
     }

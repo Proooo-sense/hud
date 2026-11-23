@@ -3,7 +3,6 @@ package com.fkdeepal.tools.ext.utils
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
-import timber.log.Timber
 
 object PreferenceUtils {
 
@@ -205,57 +204,5 @@ object PreferenceUtils {
     @JvmStatic
     fun isAutoStartMode(context: Context): Boolean {
         return getBoolean(context, KEY_IS_AUTO_START_MODE, false)
-    }
-
-    // ========== 新增：车道图标大小设置 ==========
-    
-    private const val KEY_LAND_ICON_SIZE = "key_land_icon_size"
-    
-    /**
-     * 获取车道图标大小
-     */
-    @JvmStatic
-    fun getLandIconSize(context: Context): Int {
-        return getInt(context, KEY_LAND_ICON_SIZE, 55) // 默认55px
-    }
-    
-    /**
-     * 设置车道图标大小
-     */
-    @JvmStatic
-    fun setLandIconSize(context: Context, size: Int) {
-        putInt(context, KEY_LAND_ICON_SIZE, size)
-        Timber.d("设置车道图标大小: ${size}px")
-    }
-    
-    /**
-     * 获取车道图标宽度（根据高度自动计算比例）
-     */
-    @JvmStatic
-    fun getLandIconWidth(context: Context): Int {
-        val height = getLandIconSize(context)
-        // 根据40:55的比例计算宽度
-        return (height * 40 / 55)
-    }
-
-    // ========== 新增：车道图标间距设置 ==========
-    
-    private const val KEY_LAND_ICON_SPACING = "key_land_icon_spacing"
-    
-    /**
-     * 获取车道图标间距
-     */
-    @JvmStatic
-    fun getLandIconSpacing(context: Context): Int {
-        return getInt(context, KEY_LAND_ICON_SPACING, 0) // 默认0px
-    }
-    
-    /**
-     * 设置车道图标间距
-     */
-    @JvmStatic
-    fun setLandIconSpacing(context: Context, spacing: Int) {
-        putInt(context, KEY_LAND_ICON_SPACING, spacing)
-        Timber.d("设置车道图标间距: ${spacing}px")
     }
 }

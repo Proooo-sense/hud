@@ -1,18 +1,16 @@
 package com.fkdeepal.tools.ext.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
+import androidx.appcompat.content.res.AppCompatResources
 import com.fkdeepal.tools.ext.R
 import com.fkdeepal.tools.ext.adapter.base.BaseAdapter
 import com.fkdeepal.tools.ext.bean.AmapDriveWayInfoBean
 import com.fkdeepal.tools.ext.databinding.ItemHubDriveWayBinding
 import com.fkdeepal.tools.ext.utils.AppUtils
 import com.fkdeepal.tools.ext.utils.SvgLoader
-import com.fkdeepal.tools.ext.utils.PreferenceUtils
-import com.fkdeepal.tools.ext.utils.ColorPreferenceManager
-import com.jeremyliao.liveeventbus.LiveEventBus
 import timber.log.Timber
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -31,12 +29,6 @@ class HudAmapDriveWayAdapter(mData: ArrayList<AmapDriveWayInfoBean>) : BaseAdapt
     companion object {
         private const val TAG = "HudAmapDriveWayAdapter"
     }
-    
-    init {
-        // 监听颜色变化
-        setupColorChangeListener()
-        Timber.tag(TAG).d("HudAmapDriveWayAdapter初始化，数据数量: ${mData.size}")
-    }
 
     override fun onCreateViewBinding(layoutInflater: LayoutInflater,
                                      parent: ViewGroup,
@@ -46,24 +38,6 @@ class HudAmapDriveWayAdapter(mData: ArrayList<AmapDriveWayInfoBean>) : BaseAdapt
         )
         Timber.tag(TAG).d("创建视图绑定")
         return ItemHubDriveWayBinding.inflate(layoutInflater, parent, false)
-    }
-
-    private fun setupColorChangeListener() {
-        // 监听颜色更新事件
-        LiveEventBus.get("land_color_update", Boolean::class.java)
-            .observeForever {
-                Timber.tag(TAG).d("收到颜色更新事件，刷新所有可见图标")
-                // 强制刷新所有可见的图标
-                notifyDataSetChanged()
-            }
-        
-        // ========== 新增：监听间距更新事件 ==========
-        LiveEventBus.get("land_icon_spacing_update", Int::class.java)
-            .observeForever { newSpacing ->
-                Timber.tag(TAG).d("收到图标间距更新事件: ${newSpacing}px，刷新所有可见图标")
-                // 强制刷新所有可见的图标
-                notifyDataSetChanged()
-            }
     }
 
     fun setImageDrawable(viewBinding: ItemHubDriveWayBinding, resourceName: String,
@@ -77,40 +51,14 @@ class HudAmapDriveWayAdapter(mData: ArrayList<AmapDriveWayInfoBean>) : BaseAdapt
             val iconNumber = resourceName.removePrefix("ic_land_")
             Timber.tag(TAG).d("加载车道图标, 资源名: $resourceName, 编号: $iconNumber")
             
-            // 使用SVG加载器加载图标
             val drawable = SvgLoader.loadLandIcon(mContext, iconNumber)
             if (drawable != null) {
                 // 在主线程安全设置图片
                 viewBinding.root.post {
                     runCatching {
-                        // 先设置图片
                         viewBinding.ivIcon.setImageDrawable(drawable)
-                        
-                        // 动态设置图标尺寸
-                        val iconHeight = PreferenceUtils.getLandIconSize(mContext)
-                        val iconWidth = PreferenceUtils.getLandIconWidth(mContext)
-                        
-                        Timber.tag(TAG).d("设置图片视图尺寸 - 宽度: ${iconWidth}px, 高度: ${iconHeight}px")
-                        
-                        // 直接设置图片视图尺寸
-                        val layoutParams = viewBinding.ivIcon.layoutParams
-                        layoutParams.width = iconWidth
-                        layoutParams.height = iconHeight
-                        viewBinding.ivIcon.layoutParams = layoutParams
-                        
-                        // 强制测量和布局
-                        viewBinding.ivIcon.measure(
-                            View.MeasureSpec.makeMeasureSpec(iconWidth, View.MeasureSpec.EXACTLY),
-                            View.MeasureSpec.makeMeasureSpec(iconHeight, View.MeasureSpec.EXACTLY)
-                        )
-                        viewBinding.ivIcon.layout(0, 0, iconWidth, iconHeight)
-                        
-                        // ========== 新增：调试日志 ==========
-                        Timber.tag(TAG).d("✅ 图标尺寸设置完成 - 设置: ${iconWidth}x${iconHeight}px, 实际: ${viewBinding.ivIcon.width}x${viewBinding.ivIcon.height}px")
-                        Timber.tag(TAG).d("✅ PreferenceUtils.getLandIconSize: ${PreferenceUtils.getLandIconSize(mContext)}px")
-                        
+                        Timber.tag(TAG).d("成功加载车道图标: $resourceName")
                         logMemoryStatus("车道图标加载完成: $resourceName")
-                        
                     }.onFailure { e ->
                         Timber.tag(TAG).e(e, "设置车道图标时发生错误: $resourceName")
                         // 加载失败时设置透明背景
@@ -156,27 +104,8 @@ class HudAmapDriveWayAdapter(mData: ArrayList<AmapDriveWayInfoBean>) : BaseAdapt
                 runCatching {
                     val drawable = SvgLoader.loadLandIcon(mContext, "89")
                     if (drawable != null) {
-                        // 先设置图片
                         viewBinding.ivIcon.setImageDrawable(drawable)
-                        
-                        // 动态设置默认图标尺寸
-                        val iconHeight = PreferenceUtils.getLandIconSize(mContext)
-                        val iconWidth = PreferenceUtils.getLandIconWidth(mContext)
-                        
-                        val layoutParams = viewBinding.ivIcon.layoutParams
-                        layoutParams.width = iconWidth
-                        layoutParams.height = iconHeight
-                        viewBinding.ivIcon.layoutParams = layoutParams
-                        
-                        // 强制测量和布局
-                        viewBinding.ivIcon.measure(
-                            View.MeasureSpec.makeMeasureSpec(iconWidth, View.MeasureSpec.EXACTLY),
-                            View.MeasureSpec.makeMeasureSpec(iconHeight, View.MeasureSpec.EXACTLY)
-                        )
-                        viewBinding.ivIcon.layout(0, 0, iconWidth, iconHeight)
-                        
-                        Timber.tag(TAG).d("使用默认 SVG 图标 - 位置: $position, 设置尺寸: ${iconWidth}x${iconHeight}px")
-                        Timber.tag(TAG).d("默认图标实际尺寸 - 宽度: ${viewBinding.ivIcon.width}px, 高度: ${viewBinding.ivIcon.height}px")
+                        Timber.tag(TAG).d("使用默认 SVG 图标 - 位置: $position")
                     } else {
                         viewBinding.ivIcon.setImageDrawable(null)
                         Timber.tag(TAG).w("默认 SVG 图标加载失败 - 位置: $position")
@@ -236,29 +165,5 @@ class HudAmapDriveWayAdapter(mData: ArrayList<AmapDriveWayInfoBean>) : BaseAdapt
      */
     fun getCacheStatistics(): String {
         return SvgLoader.getCacheStats()
-    }
-    
-    /**
-     * 刷新所有图标尺寸（用于实时更新）
-     */
-    fun refreshIconSizes() {
-        Timber.tag(TAG).d("刷新所有图标尺寸")
-        notifyDataSetChanged()
-    }
-    
-    /**
-     * 新增：刷新所有图标颜色（用于实时更新）
-     */
-    fun refreshIconColors() {
-        Timber.tag(TAG).d("刷新所有图标颜色")
-        notifyDataSetChanged()
-    }
-    
-    /**
-     * 新增：刷新所有图标间距（用于实时更新）
-     */
-    fun refreshIconSpacing() {
-        Timber.tag(TAG).d("刷新所有图标间距")
-        notifyDataSetChanged()
     }
 }

@@ -6,27 +6,20 @@
         <ListPreference
             android:key="key_setting_hud_display_id"
             android:title="投屏屏幕ID"
-            android:summary="S07 Hud的应该是第二个,分辨率800x480的"
+            android:summary="OTA 后 HUD 分辨率是 840x640；留空则自动按分辨率识别"
             app:defaultValue="">
         </ListPreference>
+
+        <Preference
+            android:key="key_refresh_display_list"
+            android:title="刷新屏幕列表"
+            android:summary="重新读取系统屏幕（HUD 屏晚出现时点这里）" />
     </PreferenceCategory>
     <PreferenceCategory android:title="颜色设置" >
         <Preference
             android:key="key_land_color_setting"
             android:title="车道图标颜色设置"
             android:summary="设置主颜色（灰色箭头）和次颜色（红色箭头）的RGB值" />
-        
-        <!-- 图标大小控制滑块 -->
-        <Preference
-            android:key="key_land_icon_size_pref"
-            android:title="车道图标大小"
-            android:summary="调整车道图标的显示尺寸" />
-            
-        <!-- 新增：图标间距控制滑块 -->
-        <Preference
-            android:key="key_land_icon_spacing_pref"
-            android:title="车道图标间距"
-            android:summary="调整车道图标之间的间隔距离" />
     </PreferenceCategory>
     <PreferenceCategory android:title="其他" >
         <!--单选-->

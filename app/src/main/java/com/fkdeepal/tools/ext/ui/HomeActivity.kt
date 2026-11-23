@@ -10,7 +10,10 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.fkdeepal.tools.ext.AmapFloatManager
 import com.fkdeepal.tools.ext.R
+import com.fkdeepal.tools.ext.service.HudWatchService
+import com.fkdeepal.tools.ext.utils.HudDisplayHelper
 import com.fkdeepal.tools.ext.utils.PreferenceUtils
 import com.fkdeepal.tools.ext.ui.video.HudVideoActivity
 import com.fkdeepal.tools.ext.ui.setting.SettingActivity
@@ -47,6 +50,8 @@ class HomeActivity : AppCompatActivity() {
         Timber.tag(TAG).d("HomeActivity恢复")
         // 每次回到主页时检查调试模式状态
         updateDevLayoutVisibility()
+        // 打印屏幕列表：排查"找不到 HUD 屏"就看这段
+        Timber.tag(TAG).i("屏幕列表:\n${HudDisplayHelper.displayBrief(this)}")
     }
 
     private fun initViews() {
@@ -119,8 +124,11 @@ class HomeActivity : AppCompatActivity() {
 
     private fun checkAutoStart() {
         Timber.tag(TAG).d("检查自启动设置")
-        // 只有在自启动开启且HUD服务没有运行时才执行
-        if (PreferenceUtils.isAutoStartEnabled(this) && !HudDisplayActivity.isHudServiceRunning()) {
+        // 自启动开启、且 HUD 当前没有在显示时才尝试
+        if (PreferenceUtils.isAutoStartEnabled(this) &&
+            !HudDisplayActivity.isHudServiceRunning() &&
+            !AmapFloatManager.isShowing()
+        ) {
             Timber.tag(TAG).i("满足自启动条件，准备跳转")
             // 延迟一段时间再跳转，让界面先显示出来
             handler.postDelayed({
@@ -132,22 +140,29 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun startHudDisplayActivity(isAutoStart: Boolean) {
-        Timber.tag(TAG).d("启动HUD显示Activity - 自启动模式: $isAutoStart")
-        if (Settings.canDrawOverlays(this)) {
-            // 标记启动模式
-            PreferenceUtils.setAutoStartMode(this, isAutoStart)
-            
-            // 使用新的启动方法，传递自启动模式
-            HudDisplayActivity.startActivity(this, isAutoStart)
-            
-            if (isAutoStart) {
-                Timber.tag(TAG).i("自启动模式，结束当前Activity")
-                // 如果是自启动模式，立即finish当前页面
-                finish()
-            }
-        } else {
+        Timber.tag(TAG).d("启动HUD显示 - 自启动模式: $isAutoStart")
+        if (!Settings.canDrawOverlays(this)) {
             Timber.tag(TAG).w("缺少悬浮窗权限")
             Toast.makeText(this, "请先授予悬浮窗权限", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        PreferenceUtils.setAutoStartMode(this, isAutoStart)
+
+        // 前台服务保活 + 屏幕监听：HUD 屏晚出现时能自动接上
+        HudWatchService.start(this)
+
+        // 新固件会拒绝 launchDisplayId，HudDisplayHelper 内部会自动降级为
+        // "按屏幕创建 Context 加悬浮窗"，并且找不到 HUD 屏时不会崩、会等待屏幕出现。
+        val ok = HudDisplayHelper.startHud(this, isAutoStart)
+        Timber.tag(TAG).i("启动HUD结果: $ok / ${HudDisplayHelper.lastResult}")
+
+        if (isAutoStart && ok) {
+            Timber.tag(TAG).i("自启动模式，结束当前Activity")
+            finish()
+        } else if (!ok) {
+            // 找不到 HUD 屏时不再 finish（否则用户什么都看不到），只提示
+            Toast.makeText(this, "HUD 未启动：${HudDisplayHelper.lastResult}", Toast.LENGTH_LONG).show()
         }
     }
 

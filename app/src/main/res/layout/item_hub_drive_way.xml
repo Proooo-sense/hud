@@ -1,27 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:padding="0dp">
+    android:layout_width="29px"
+    android:layout_height="40px">
     
+    <!-- 移除 app:srcCompat 属性，避免在XML中直接引用SVG -->
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/ivIcon"
-        android:layout_width="150dp"
-        android:layout_height="206.25dp"
+        android:layout_width="29px"
+        android:layout_height="40px"
         android:scaleType="centerInside"
         android:adjustViewBounds="true"
-        android:padding="0dp"
         tools:src="@drawable/ic_land_66" />
 
     <TextView
         android:id="@+id/tvValue"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:textSize="20sp"
+        android:textSize="20px"
         android:textColor="@color/white"
         android:visibility="gone"/>
-</FrameLayout>
+</RelativeLayout>

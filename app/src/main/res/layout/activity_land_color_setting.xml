@@ -3,52 +3,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    android:background="@color/black">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- 高亮显示开关 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="高亮显示（100米内闪烁）"
-                android:textSize="16sp"
-                android:textColor="@color/white" />
-
-            <Switch
-                android:id="@+id/switchHighlight"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <!-- 主颜色设置 -->
+        <!-- 主颜色设置（灰色箭头） -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="主颜色 (主要箭头)"
-            android:textSize="18sp"
-            android:textColor="@color/white"
-            android:layout_marginBottom="8dp"/>
-
-        <com.fkdeepal.tools.ext.widget.HSVColorPicker
-            android:id="@+id/primaryColorPicker"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginBottom="8dp"/>
+            android:layout_height="wrap_content"
+            android:text="主颜色（灰色箭头）"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -58,80 +27,155 @@
             android:layout_marginBottom="16dp">
 
             <View
-                android:id="@+id/primaryColorPreview"
+                android:id="@+id/primaryColorDisplay"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/color_preview_bg"
-                android:layout_marginEnd="12dp"/>
+                android:background="#808080"
+                android:layout_marginEnd="16dp" />
 
             <TextView
                 android:id="@+id/tvPrimaryColorValue"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="#FFFFFF"
-                android:textColor="@color/white"
-                android:textSize="14sp"/>
+                android:text="#808080"
+                android:textSize="14sp" />
 
         </LinearLayout>
 
-        <!-- 次颜色设置 -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="次颜色 (次要箭头)"
-            android:textSize="18sp"
-            android:textColor="@color/white"
-            android:layout_marginBottom="8dp"/>
-
-        <com.fkdeepal.tools.ext.widget.HSVColorPicker
-            android:id="@+id/secondaryColorPicker"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginBottom="8dp"/>
+            android:layout_height="wrap_content"
+            android:text="红色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarPrimaryRed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="绿色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarPrimaryGreen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="蓝色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarPrimaryBlue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <!-- 使用 gray 颜色作为分隔线 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/gray"
+            android:layout_marginVertical="24dp" />
+
+        <!-- 次颜色设置（红色箭头） -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="次颜色（红色箭头）"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="16dp">
 
             <View
-                android:id="@+id/secondaryColorPreview"
+                android:id="@+id/secondaryColorDisplay"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/color_preview_bg"
-                android:layout_marginEnd="12dp"/>
+                android:background="#FF0000"
+                android:layout_marginEnd="16dp" />
 
             <TextView
                 android:id="@+id/tvSecondaryColorValue"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="#FF0000"
-                android:textColor="@color/white"
-                android:textSize="14sp"/>
+                android:textSize="14sp" />
 
         </LinearLayout>
 
-        <!-- 操作按钮 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="红色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarSecondaryRed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="绿色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarSecondaryGreen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="蓝色分量" />
+
+        <SeekBar
+            android:id="@+id/seekBarSecondaryBlue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="255" />
+
+        <!-- 按钮区域 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center">
+            android:layout_marginTop="24dp">
 
-            <Button
-                android:id="@+id/btnResetColors"
-                android:layout_width="wrap_content"
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnSave"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="重置颜色"
-                android:layout_marginEnd="16dp"/>
+                android:layout_weight="1"
+                android:text="保存"
+                android:layout_marginEnd="8dp" />
 
-            <Button
-                android:id="@+id/btnSaveColors"
-                android:layout_width="wrap_content"
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnReset"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="完成"/>
+                android:layout_weight="1"
+                android:text="重置"
+                android:layout_marginEnd="8dp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnCancel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="取消" />
 
         </LinearLayout>
 

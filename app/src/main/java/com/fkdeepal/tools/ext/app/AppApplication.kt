@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.fkdeepal.tools.ext.timber.FileLoggingTree
 import com.fkdeepal.tools.ext.utils.AppUtils
 import com.fkdeepal.tools.ext.utils.FileUtils
+import com.fkdeepal.tools.ext.utils.HudDisplayHelper
 import com.fkdeepal.tools.ext.utils.SvgLoader
 import timber.log.Timber
 import java.io.PrintWriter
@@ -98,7 +99,16 @@ class AppApplication : Application(){
             }
         }
         Timber.plant(Timber.DebugTree())
-        
+
+        // 打印屏幕列表 + 开始监听屏幕变化（HUD 屏可能晚于应用出现）
+        runCatching {
+            Timber.i("屏幕列表:\n${HudDisplayHelper.displayBrief(this)}")
+            HudDisplayHelper.appendEventLog(this, "应用启动，${HudDisplayHelper.displayBrief(this)}")
+            HudDisplayHelper.startWatching(this)
+        }.onFailure {
+            Timber.e(it, "打印屏幕列表失败")
+        }
+
         // 预加载 SVG 文件
         runCatching {
             SvgLoader.preloadCommonSvgs(this)

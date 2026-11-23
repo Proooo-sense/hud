@@ -1,15 +1,11 @@
-package com.fkdeepal.tools.ext.ui.setting
+﻿package com.fkdeepal.tools.ext.ui.setting
 
 import android.app.Activity
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.Display
 import android.view.MenuItem
-import android.widget.SeekBar
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.preference.ListPreference
@@ -20,11 +16,12 @@ import androidx.preference.SwitchPreferenceCompat
 import com.fkdeepal.tools.ext.BuildConfig
 import com.fkdeepal.tools.ext.R
 import com.fkdeepal.tools.ext.LandColorSettingActivity
+import com.fkdeepal.tools.ext.exts.toast
 import com.fkdeepal.tools.ext.ui.video.HudVideoActivity
 import com.fkdeepal.tools.ext.ui.video.VideoPresentation
 import com.fkdeepal.tools.ext.utils.AppUtils
+import com.fkdeepal.tools.ext.utils.HudDisplayHelper
 import com.fkdeepal.tools.ext.utils.PreferenceUtils
-import com.jeremyliao.liveeventbus.LiveEventBus
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -32,23 +29,11 @@ import java.util.Locale
 class SettingActivity: AppCompatActivity() {
     companion object{
         private const val TAG = "SettingActivity"
-        // 修改：使用 Any 类型避免编译错误
-        private var _hudAdapter: Any? = null
 
         fun startActivity(activity: Activity) {
             Timber.tag(TAG).d("启动设置Activity")
             val intent = Intent(activity, SettingActivity::class.java)
             activity.startActivity(intent)
-        }
-        
-        // 修改：统一使用静态方法管理适配器
-        fun setHudAdapter(adapter: Any?) {
-            _hudAdapter = adapter
-            Timber.tag(TAG).d("设置HUD适配器引用")
-        }
-        
-        fun getHudAdapter(): Any? {
-            return _hudAdapter
         }
     }
     
@@ -104,16 +89,22 @@ class SettingActivity: AppCompatActivity() {
             
             findPreference<ListPreference>("key_setting_hud_display_id")?.let {
                 Timber.tag(TAG).d("初始化HUD显示设置")
-                val displayData = arrayListOf<Display>()
-                mDisplayManager?.let { manager ->
-                    displayData.addAll(manager.displays)
-                }
-                it.entries = displayData.map { display -> 
-                    "${display.displayId} - ${display.width}x${display.height} - ${if (display.state == Display.STATE_ON) "可用" else "不可用"}" 
-                }.toTypedArray()
-                it.entryValues = displayData.map { "${it.displayId}" }.toTypedArray()
+                refreshHudDisplayPreference(it)
             }
-            
+
+            // 刷新屏幕列表（HUD 屏可能晚出现 / id 变了）
+            findPreference<Preference>("key_refresh_display_list")?.let {
+                it.onPreferenceClickListener = Preference.OnPreferenceClickListener { _ ->
+                    findPreference<ListPreference>("key_setting_hud_display_id")?.let { pref ->
+                        refreshHudDisplayPreference(pref)
+                        Timber.tag(TAG).i("屏幕列表:\n${HudDisplayHelper.displayReport(requireContext())}")
+                        requireContext().toast("屏幕列表已刷新")
+                    }
+                    true
+                }
+            }
+
+
             val swDebug = findPreference<SwitchPreferenceCompat>("key_is_debug")
             swDebug?.let {
                 Timber.tag(TAG).d("初始化调试开关")
@@ -178,181 +169,34 @@ class SettingActivity: AppCompatActivity() {
                     true
                 }
             }
-            
-            // 图标大小设置点击事件
-            findPreference<Preference>("key_land_icon_size_pref")?.let { pref ->
-                Timber.tag(TAG).d("初始化图标大小设置选项")
-                
-                // 设置当前值显示
-                val currentSize = PreferenceUtils.getLandIconSize(requireContext())
-                pref.summary = "当前尺寸: ${currentSize}px (30-150)"
-                
-                pref.onPreferenceClickListener = Preference.OnPreferenceClickListener { preference ->
-                    Timber.tag(TAG).i("点击图标大小设置")
-                    showIconSizeDialog()
-                    true
-                }
-            }
-            
-            // 新增：图标间距设置点击事件
-            findPreference<Preference>("key_land_icon_spacing_pref")?.let { pref ->
-                Timber.tag(TAG).d("初始化图标间距设置选项")
-                
-                // 设置当前值显示
-                val currentSpacing = PreferenceUtils.getLandIconSpacing(requireContext())
-                pref.summary = "当前间距: ${currentSpacing}px (-30到30)"
-                
-                pref.onPreferenceClickListener = Preference.OnPreferenceClickListener { preference ->
-                    Timber.tag(TAG).i("点击图标间距设置")
-                    showIconSpacingDialog()
-                    true
-                }
-            }
         }
         
         /**
-         * 显示图标大小设置对话框
+         * 重新读取屏幕列表并填充"投屏屏幕ID"选项。
+         * HUD 屏分辨率（840x640）和 displayId 都可能变化，这里把屏幕名/分辨率/状态都列出来。
          */
-        private fun showIconSizeDialog() {
-            val currentSize = PreferenceUtils.getLandIconSize(requireContext())
-            
-            val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_icon_size, null)
-            val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBar_icon_size)
-            val textValue = dialogView.findViewById<TextView>(R.id.text_size_value)
-            
-            // 设置 SeekBar 范围
-            seekBar.min = 30
-            seekBar.max = 150
-            seekBar.progress = currentSize
-            textValue.text = "${currentSize}px"
-            
-            seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                    textValue.text = "${progress}px"
-                }
-                
-                override fun onStartTrackingTouch(seekBar: SeekBar) {
-                    Timber.tag(TAG).d("开始调整图标大小")
-                }
-                
-                override fun onStopTrackingTouch(seekBar: SeekBar) {
-                    val newSize = seekBar.progress
-                    Timber.tag(TAG).i("图标大小调整完成: ${newSize}px")
-                    
-                    // 保存新的大小
-                    PreferenceUtils.setLandIconSize(requireContext(), newSize)
-                    
-                    // 更新摘要
-                    findPreference<Preference>("key_land_icon_size_pref")?.summary = "当前尺寸: ${newSize}px (30-150)"
-                    
-                    // 修改：使用反射调用刷新方法，避免编译错误
-                    refreshHudAdapter(newSize)
-                }
-            })
-            
-            AlertDialog.Builder(requireContext())
-                .setTitle("车道图标大小")
-                .setView(dialogView)
-                .setPositiveButton("确定") { dialog, _ -> 
-                    Timber.tag(TAG).d("图标大小设置对话框确认")
-                    dialog.dismiss() 
-                }
-                .setOnDismissListener {
-                    Timber.tag(TAG).d("图标大小设置对话框关闭")
-                }
-                .show()
-        }
-        
-        /**
-         * 显示图标间距设置对话框
-         */
-        private fun showIconSpacingDialog() {
-            val currentSpacing = PreferenceUtils.getLandIconSpacing(requireContext())
-            
-            val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_icon_spacing, null)
-            val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBar_icon_spacing)
-            val textValue = dialogView.findViewById<TextView>(R.id.text_spacing_value)
-            
-            // 设置 SeekBar 范围 (-30 到 30)
-            seekBar.min = -30
-            seekBar.max = 30
-            seekBar.progress = currentSpacing + 30 // 转换为0-60的范围
-            textValue.text = "${currentSpacing}px"
-            
-            seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                    val spacing = progress - 30 // 转换回-30到30的范围
-                    textValue.text = "${spacing}px"
-                }
-                
-                override fun onStartTrackingTouch(seekBar: SeekBar) {
-                    Timber.tag(TAG).d("开始调整图标间距")
-                }
-                
-                override fun onStopTrackingTouch(seekBar: SeekBar) {
-                    val newSpacing = seekBar.progress - 30
-                    Timber.tag(TAG).i("图标间距调整完成: ${newSpacing}px")
-                    
-                    // 保存新的间距
-                    PreferenceUtils.setLandIconSpacing(requireContext(), newSpacing)
-                    
-                    // 更新摘要
-                    findPreference<Preference>("key_land_icon_spacing_pref")?.summary = "当前间距: ${newSpacing}px (-30到30)"
-                    
-                    // 刷新适配器
-                    refreshHudAdapterSpacing(newSpacing)
-                }
-            })
-            
-            AlertDialog.Builder(requireContext())
-                .setTitle("车道图标间距")
-                .setView(dialogView)
-                .setPositiveButton("确定") { dialog, _ -> 
-                    Timber.tag(TAG).d("图标间距设置对话框确认")
-                    dialog.dismiss() 
-                }
-                .setOnDismissListener {
-                    Timber.tag(TAG).d("图标间距设置对话框关闭")
-                }
-                .show()
-        }
-        
-        /**
-         * 使用反射安全地调用适配器刷新间距方法
-         */
-        private fun refreshHudAdapterSpacing(newSpacing: Int) {
-            try {
-                // ========== 修改：使用 LiveEventBus 发送间距更新事件 ==========
-                LiveEventBus.get("land_icon_spacing_update", Int::class.java)
-                    .post(newSpacing)
-                Timber.tag(TAG).d("发送图标间距更新事件: ${newSpacing}px")
-            } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "发送图标间距更新事件失败")
+        private fun refreshHudDisplayPreference(pref: ListPreference) {
+            val displays = HudDisplayHelper.listDisplays(requireContext())
+            pref.entries = displays.map { display ->
+                "${display.displayId} - ${display.width}x${display.height} - " +
+                        "${if (display.state == Display.STATE_ON) "可用" else "不可用"} - ${display.name}"
+            }.toTypedArray()
+            pref.entryValues = displays.map { it.displayId.toString() }.toTypedArray()
+
+            val current = pref.value
+            if (current != null && displays.none { it.displayId.toString() == current }) {
+                Timber.tag(TAG).w("保存的投屏屏幕ID=$current 已不在屏幕列表中")
             }
+            pref.summary = "当前：${current ?: "未设置"}（共 ${displays.size} 块屏）"
         }
-        
-        /**
-         * 新增：使用反射安全地调用适配器刷新方法
-         */
-        private fun refreshHudAdapter(newSize: Int) {
-            try {
-                val adapter = SettingActivity.getHudAdapter()
-                if (adapter != null) {
-                    // 使用反射调用 refreshIconSizes 方法
-                    val method = adapter.javaClass.getMethod("refreshIconSizes")
-                    method.invoke(adapter)
-                    Timber.tag(TAG).d("成功调用适配器刷新方法，新尺寸: ${newSize}px")
-                } else {
-                    Timber.tag(TAG).w("适配器为null，无法刷新图标尺寸")
-                }
-            } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "调用适配器刷新方法失败")
-            }
-        }
-        
+
         override fun onResume() {
             super.onResume()
             Timber.tag(TAG).d("SettingFragment恢复")
+            // 回到设置页时刷新一下（HUD 屏可能刚出现）
+            findPreference<ListPreference>("key_setting_hud_display_id")?.let {
+                refreshHudDisplayPreference(it)
+            }
         }
         
         override fun onPause() {
